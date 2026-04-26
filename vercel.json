@@ -1,0 +1,13 @@
+{
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "ignoreCommand": "git diff --quiet $VERCEL_GIT_COMMIT_REF $VERCEL_GIT_PREVIOUS_COMMIT -- .",
+  "regions": ["sfo1"],
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs18.x",
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  }
+}

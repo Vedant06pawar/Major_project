@@ -1,0 +1,25 @@
+{
+  "name": "docreader-ai",
+  "version": "1.0.0",
+  "description": "AI-powered accessible document reader for visually impaired students",
+  "type": "module",
+  "scripts": {
+    "install-frontend": "cd frontend && npm install",
+    "build": "cd frontend && npm run build",
+    "preview": "cd frontend && npm run preview",
+    "dev": "cd frontend && npm run dev"
+  },
+  "keywords": [
+    "accessibility",
+    "document-reader",
+    "text-to-speech",
+    "visually-impaired",
+    "ai"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}

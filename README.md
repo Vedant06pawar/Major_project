@@ -1,243 +1,247 @@
-# Accessible Document Reader — Backend
+# DocReader AI — Accessible Document Reader
 
-A Python backend designed for **visually impaired students** that:
+An AI-powered web application for visually impaired students. Converts PDFs and Word documents to speech with AI-generated image descriptions.
 
-1. Accepts a **PDF or DOCX** document upload
-2. **Parses the document sequentially** — preserving reading order
-3. **Converts text blocks to speech** (offline, no API required)
-4. **Captions image blocks** using your trained **ChartCaptioner** model (CNN + ViT + Transformer decoder)
-5. Returns audio files (WAV) and text captions for each block
+**Backend:** Python FastAPI + ChartCaptioner model  
+**Frontend:** React + Tailwind CSS + Web APIs (SpeechSynthesis, SpeechRecognition)
 
 ---
 
 ## Project Structure
 
 ```
-backend/
-├── app.py                  ← FastAPI application (endpoints + session management)
-├── document_parser.py      ← PDF (PyMuPDF) + DOCX (python-docx) sequential parser
-├── tts_engine.py           ← Offline TTS: pyttsx3 → espeak-ng → silent fallback
-├── captioner.py            ← Wrapper around ChartCaptioner model
-├── chart_captioner/        ← Your original model files (copied as-is)
-│   ├── model.py
-│   ├── inference.py
-│   ├── dataset.py
-│   ├── train.py
-│   ├── evaluate.py
-│   └── requirements.txt
+.
+├── frontend/                ← React app (deployed to Vercel)
+│   ├── src/
+│   │   ├── pages/           ← Home, Upload, Reader, Assistant
+│   │   ├── components/      ← Button, AudioPlayer, etc.
+│   │   ├── services/        ← API integration (getBlocks, getStatus, etc.)
+│   │   ├── utils/           ← speech.js (TTS + announcements)
+│   │   ├── App.jsx
+│   │   └── index.css        ← Tailwind + animations
+│   ├── package.json
+│   └── vite.config.js
+├── app.py                   ← FastAPI backend
+├── document_parser.py       ← PDF/DOCX parsing
+├── tts_engine.py            ← Text-to-speech
+├── captioner.py             ← Image descriptions
 ├── requirements.txt
-├── start.sh
+├── package.json             ← Root build config
+├── vercel.json              ← Vercel deployment
+├── .nvmrc                   ← Node version (18)
 └── README.md
 ```
 
 ---
 
-## Setup
+## Frontend Setup
 
-### 1. Install system dependencies (Linux/Ubuntu)
+### Install & Build
 
 ```bash
-sudo apt install espeak-ng   # TTS fallback engine
+npm install       # Installs frontend deps
+npm run build     # Builds React app → frontend/dist/
+npm run dev       # Local dev server (port 5173)
 ```
 
-### 2. Install Python dependencies
+### Environment Variables
+
+Create `frontend/.env.local`:
+
+```
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+For production (Vercel), set:
+
+```
+VITE_API_BASE_URL=https://your-api.example.com
+```
+
+### Pages
+
+- **Home** (`/`) — Intro, features, call-to-action buttons
+- **Upload** (`/upload`) — Drag-drop file upload, live progress polling
+- **Reader** (`/reader`) — Block-by-block navigation, audio playback, image descriptions
+- **Assistant** (`/assistant`) — Voice Q&A with mic input & speech output
+
+### Accessibility
+
+- **Global Speech:** Every button/link speaks its label on hover or focus
+- **Keyboard Navigation:** Tab, Enter, Space, Arrow keys
+- **Voice Toggle:** "Voice On/Off" button in navbar
+- **ARIA:** Full semantic markup, live regions, roles
+- **High Contrast:** Dark theme, large buttons, focus rings
+
+---
+
+## Backend API
+
+### Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/process` | Upload a PDF or DOCX file |
+| `GET` | `/status/{session_id}` | Poll processing status |
+| `GET` | `/blocks/{session_id}` | Get all processed blocks |
+| `GET` | `/audio/{session_id}/{block_index}` | Stream WAV audio |
+| `GET` | `/export/{session_id}` | Download full document audio |
+| `DELETE` | `/session/{session_id}` | Clean up session |
+| `GET` | `/health` | Health check |
+
+### Running Backend
 
 ```bash
+# Install Python dependencies
 pip install -r requirements.txt
+
+# Start server
+python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 3. (Optional) Install pyttsx3 voices
-
-On Linux, pyttsx3 uses espeak under the hood:
-```bash
-sudo apt install espeak espeak-data
-```
+API docs: **http://localhost:8000/docs**
 
 ---
 
-## Running the Server
+## Deployment (Vercel)
 
-### With your trained model checkpoint
+The app is configured for **Vercel** deployment.
 
-```bash
-export CHART_CAPTIONER_CHECKPOINT="checkpoints/best.pt"
-bash start.sh
-```
-
-### Without a checkpoint (fallback descriptions)
+### Deploy Frontend Only
 
 ```bash
-bash start.sh
+# Push to GitHub
+git add .
+git commit -m "Add DocReader AI frontend"
+git push
+
+# Import in Vercel dashboard:
+# Build Command: npm run build
+# Output Directory: frontend/dist
+# Environment: VITE_API_BASE_URL=<your-api-url>
 ```
 
-The server starts at **http://localhost:8000**.  
-Interactive API docs: **http://localhost:8000/docs**
+### Deploy Backend Separately
 
----
-
-## API Reference
-
-### `POST /process`
-Upload a PDF or DOCX file to begin processing.
+For production backend, use Render, Railway, or Heroku:
 
 ```bash
-curl -X POST http://localhost:8000/process \
-  -F "file=@lecture_notes.pdf"
+# Example: Render
+# Connect your repo → Select Python → Start command:
+# uvicorn app:app --host 0.0.0.0 --port $PORT
 ```
 
-Response:
-```json
-{
-  "session_id": "a1b2c3d4-...",
-  "message": "Processing started."
-}
-```
+Then set `VITE_API_BASE_URL` to your production backend URL in Vercel.
 
 ---
 
-### `GET /status/{session_id}`
-Poll until `status` is `"done"` or `"error"`.
+## Development Workflow
+
+### Local Testing
 
 ```bash
-curl http://localhost:8000/status/a1b2c3d4-...
+# Terminal 1: Start backend
+python -m uvicorn app:app --reload
+
+# Terminal 2: Start frontend dev server
+cd frontend && npm run dev
 ```
 
-Response:
-```json
-{
-  "session_id": "a1b2c3d4-...",
-  "status": "processing",
-  "error": null,
-  "blocks_ready": 5
-}
-```
+Visit **http://localhost:5173** — frontend automatically proxies API calls to backend.
 
----
-
-### `GET /blocks/{session_id}`
-Retrieve all processed blocks (available incrementally during processing).
+### Building for Production
 
 ```bash
-curl http://localhost:8000/blocks/a1b2c3d4-...
-```
+npm run build
 
-Response:
-```json
-{
-  "session_id": "a1b2c3d4-...",
-  "status": "done",
-  "blocks": [
-    {
-      "index": 0,
-      "type": "text",
-      "content": "Chapter 1: Introduction to Machine Learning",
-      "has_audio": true
-    },
-    {
-      "index": 1,
-      "type": "image",
-      "content": "Image description: A bar chart showing training accuracy over 30 epochs, rising from 60% to 94%.",
-      "has_audio": true
-    }
-  ]
-}
+# Output: frontend/dist/
+# → Ready to deploy to Vercel, Netlify, GitHub Pages, etc.
 ```
 
 ---
 
-### `GET /audio/{session_id}/{block_index}`
-Download the WAV audio file for a block.
+## Features
+
+### Document Processing
+
+- Accepts PDF and DOCX files
+- Extracts text blocks sequentially
+- Automatically captions images using AI
+- Converts all content to speech (offline)
+
+### Reader
+
+- Play/Pause/Next/Previous controls
+- Click to jump to any block
+- Highlights currently-spoken block
+- Per-block audio playback
+- Download full document as WAV
+
+### Voice Assistant
+
+- Speech recognition input (browser SpeechRecognition API)
+- Navigation help, keyboard shortcuts, usage tips
+- All responses spoken aloud
+
+### Accessibility
+
+- Voice announcements on button hover/focus
+- Full keyboard navigation
+- High-contrast dark theme
+- Large touch targets
+- Screen reader support (ARIA)
+
+---
+
+## Technology Stack
+
+**Frontend:**
+- React 19 (functional components)
+- Vite (fast build)
+- Tailwind CSS 4 (styling)
+- React Router (navigation)
+- Web Speech API (SpeechSynthesis + SpeechRecognition)
+
+**Backend:**
+- Python 3.8+
+- FastAPI (async HTTP)
+- PyMuPDF (PDF parsing)
+- python-docx (Word parsing)
+- pyttsx3 (offline TTS)
+- ChartCaptioner (image captioning)
+
+---
+
+## Troubleshooting
+
+### API Connection Failed
+
+Check `VITE_API_BASE_URL` environment variable and backend status:
 
 ```bash
-curl -O http://localhost:8000/audio/a1b2c3d4-.../0
-# saves block_0.wav
+curl http://localhost:8000/health
 ```
 
----
+### No Speech Output
 
-### `DELETE /session/{session_id}`
-Clean up all temporary files for a session.
+Ensure SpeechSynthesis is available:
+
+```javascript
+console.log(window.speechSynthesis ? 'Available' : 'Not available');
+```
+
+### Build Errors
+
+Clear cache and reinstall:
 
 ```bash
-curl -X DELETE http://localhost:8000/session/a1b2c3d4-...
+rm -rf frontend/node_modules frontend/.next
+npm install
+npm run build
 ```
 
 ---
 
-### `GET /health`
-Check if the server is running and whether the model is loaded.
+## License
 
-```json
-{
-  "status": "ok",
-  "captioner_loaded": true
-}
-```
-
----
-
-## Architecture: Processing Pipeline
-
-```
-Upload (PDF/DOCX)
-       │
-       ▼
-┌─────────────────────────┐
-│   document_parser.py    │  PyMuPDF or python-docx
-│                         │  → sequential [block, block, ...]
-│  text block ────────────┼──────────────────────────┐
-│  image block ───────────┼──────────────────┐       │
-└─────────────────────────┘                  │       │
-                                             ▼       ▼
-                                    ┌─────────────┐  ┌──────────────┐
-                                    │ captioner.py│  │ tts_engine.py│
-                                    │ ChartCaptioner  │ pyttsx3 /   │
-                                    │ CNN+ViT model   │ espeak-ng   │
-                                    └──────┬──────┘  └──────┬───────┘
-                                           │ caption         │ .wav
-                                           └────────┬────────┘
-                                                    ▼
-                                           tts_engine.py
-                                           (caption → .wav)
-                                                    │
-                                                    ▼
-                                           Session store
-                                           blocks[{type, content, audio_path}]
-```
-
----
-
-## Model Integration
-
-The `chart_captioner/` folder is used **exactly as provided** — no modifications.  
-`captioner.py` imports `inference.load_model` and `inference.caption_image` directly:
-
-```python
-from inference import load_model, caption_image
-
-model, tokenizer = load_model("checkpoints/best.pt", device)
-caption = caption_image(model, tokenizer, image_path="chart.png", device=device)
-```
-
-The model runs **100% offline** with no API calls.
-
----
-
-## TTS Engines (Offline Only)
-
-| Priority | Engine | Notes |
-|----------|--------|-------|
-| 1st | **pyttsx3** | Cross-platform offline TTS; uses system voices |
-| 2nd | **espeak-ng** | Linux CLI; `apt install espeak-ng` |
-| 3rd | Silent WAV | Placeholder so the server never crashes |
-
----
-
-## Frontend Integration Tips
-
-For a frontend aimed at visually impaired users:
-
-- Poll `/status/{id}` every 1–2 seconds
-- As `blocks_ready` increases, fetch new blocks from `/blocks/{id}` and begin playing audio immediately (don't wait for full processing)
-- Use `GET /audio/{id}/{index}` as the `src` of an `<audio>` element
-- Announce block type before playing: *"Text"* or *"Image description"*
+MIT
