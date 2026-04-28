@@ -192,8 +192,8 @@ export default function Upload() {
           <Button
             size="lg"
             variant="secondary"
-            onClick={() => { setStatus('idle'); setError(''); setFile(null); }}
-            label="Try again — upload a new file"
+            onClick={() => { setStatus('idle'); setError(''); }}
+            label="Try again — upload the same file"
             className="w-full"
           >
             Try Again
