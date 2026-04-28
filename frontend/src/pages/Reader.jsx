@@ -78,16 +78,18 @@ export default function Reader() {
     setPlaying(true);
 
     if (block.has_audio) {
-      // Use backend-generated audio file
       setActiveAudioSrc(getAudioUrl(sessionId, block.index));
     } else {
-      // Fall back to browser TTS — speak the actual content, not just the label
-      const textToSpeak = block.type === 'image'
-        ? `Image description: ${block.content}`
-        : block.content;
-      speak(textToSpeak, { force: true, rate: 0.95 });
+      // Fall back to browser TTS
+      speak(block.content, { force: true, rate: 0.95 });
       setPlaying(false);
     }
+
+    announceStatus(
+      block.type === 'image'
+        ? `Image block ${idx + 1} of ${blocks.length}: ${block.content}`
+        : `Text block ${idx + 1} of ${blocks.length}`
+    );
   }
 
   function handlePlayPause() {
@@ -95,7 +97,7 @@ export default function Reader() {
     if (playing && audioRef.current) {
       audioRef.current.pause();
       setPlaying(false);
-      cancelSpeech();
+      announceStatus('Paused.');
     } else {
       playBlock(currentIdx);
     }
@@ -279,11 +281,7 @@ export default function Reader() {
       {activeAudioSrc && (
         <AudioPlayer
           src={activeAudioSrc}
-          label={currentBlock
-            ? (currentBlock.type === 'image'
-                ? `Image description: ${currentBlock.content}`
-                : currentBlock.content)
-            : 'Audio'}
+          label={currentBlock ? `Block ${currentIdx + 1}: ${currentBlock.type === 'image' ? 'Image description' : 'Text'}` : 'Audio'}
           autoPlay={playing}
           onEnded={onAudioEnded}
         />
@@ -320,10 +318,7 @@ export default function Reader() {
               aria-current={isActive ? 'true' : undefined}
               onClick={() => { setCurrentIdx(i); playBlock(i); }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCurrentIdx(i); playBlock(i); } }}
-              onFocus={() => {
-                const preview = block.content?.slice(0, 80) || '';
-                announceStatus(`Block ${i + 1} of ${blocks.length}. ${isImage ? 'Image' : 'Text'}: ${preview}. Press Enter to play.`);
-              }}
+              onFocus={() => announceStatus(`Block ${i + 1} of ${blocks.length}. ${isImage ? 'Image block' : 'Text block'}. Press Enter to play.`)}
               className={[
                 'rounded-xl px-5 py-4 border cursor-pointer transition-all',
                 'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-sky-400',
